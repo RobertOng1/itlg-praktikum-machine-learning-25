@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visualisasi Interaktif Kurva ROC-AUC &amp; PR-AUC (Regresi Logistik)</title>
+  <style>
+    :root {
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --bg-subtle: #f1f5f9;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --primary: #2563eb;
+      --primary-light: #eff6ff;
+      --primary-dark: #1d4ed8;
+      
+      /* Warna Kelas Data */
+      --class-neg: #0284c7;        /* Biru (Kelas 0 / Negatif) */
+      --class-neg-bg: #e0f2fe;
+      --class-pos: #dc2626;        /* Merah (Kelas 1 / Positif) */
+      --class-pos-bg: #fee2e2;
+      
+      /* Warna Matriks Konfusi */
+      --tp-color: #059669;
+      --tp-bg: #ecfdf5;
+      --fn-color: #dc2626;
+      --fn-bg: #fef2f2;
+      --fp-color: #d97706;
+      --fp-bg: #fffbeb;
+      --tn-color: #0891b2;
+      --tn-bg: #f0fdfa;
+
+      --border-color: #e2e8f0;
+      --radius: 12px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -2px rgba(0,0,0,0.05);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.04);
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, Monaco, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      line-height: 1.6;
+      padding: 30px 20px 80px;
+    }
+
+    .container {
+      max-width: 1240px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .badge-course {
+      display: inline-block;
+      background: var(--primary-light);
+      color: var(--primary-dark);
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 5px 14px;
+      border-radius: 9999px;
+      margin-bottom: 10px;
+    }
+
+    h1 {
+      font-size: 2.1rem;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      color: var(--text-main);
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 1.02rem;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    /* Grid Layout Kontrol */
+    .top-controls {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .controls-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .preset-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .preset-label {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .btn-preset {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 7px 14px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-preset:hover {
+      background: var(--primary-light);
+      border-color: var(--primary);
+      color: var(--primary-dark);
+    }
+
+    .btn-preset.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #ffffff;
+    }
+
+    /* Slider Threshold Bar */
+    .threshold-control-box {
+      background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
+      border: 1.5px solid #bfdbfe;
+      border-radius: 10px;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .threshold-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .threshold-title {
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--primary-dark);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .threshold-val-badge {
+      font-family: var(--font-mono);
+      font-size: 1.35rem;
+      font-weight: 800;
+      background: #ffffff;
+      color: var(--primary-dark);
+      padding: 4px 14px;
+      border-radius: 8px;
+      border: 2px solid #93c5fd;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .range-threshold {
+      flex: 1;
+      height: 10px;
+      border-radius: 5px;
+      background: #cbd5e1;
+      outline: none;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    .slider-endpoints {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    /* Visualisasi Regresi Logistik Sesungguhnya */
+    .scatter-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 22px 24px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .scatter-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .scatter-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .legend-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 0.84rem;
+      font-weight: 600;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dot-neg {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--class-neg);
+      display: inline-block;
+    }
+
+    .dot-pos {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--class-pos);
+      display: inline-block;
+    }
+
+    .svg-scatter-container {
+      width: 100%;
+      height: 310px;
+      background: #fdfefe;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      position: relative;
+      cursor: crosshair;
+    }
+
+    /* Grid Dua Kurva: ROC vs PR */
+    .curves-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 900px) {
+      .curves-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .curve-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .curve-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .curve-title-box h3 {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    .curve-title-box span {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    .auc-score-box {
+      text-align: right;
+    }
+
+    .auc-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    .auc-val {
+      font-family: var(--font-mono);
+      font-size: 1.55rem;
+      font-weight: 800;
+      color: var(--primary-dark);
+      display: block;
+    }
+
+    .svg-curve-wrapper {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      max-height: 380px;
+      margin: 0 auto;
+    }
+
+    /* Panel Bawah: Matriks Konfusi & Metrik Real-Time */
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.3fr;
+      gap: 24px;
+      align-items: stretch;
+    }
+
+    @media (max-width: 860px) {
+      .bottom-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .cm-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 22px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .cm-card h3 {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .cm-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 8px;
+    }
+
+    .cm-corner { width: 90px; }
+    .cm-th-col {
+      text-align: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-main);
+      padding-bottom: 4px;
+    }
+    .cm-th-row {
+      text-align: right;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-main);
+      padding-right: 6px;
+      vertical-align: middle;
+      width: 90px;
+    }
+
+    .cm-cell {
+      border-radius: 8px;
+      padding: 12px 14px;
+      text-align: left;
+    }
+
+    .cm-cell.tp { background: var(--tp-bg); border: 2px solid var(--tp-color); color: #065f46; }
+    .cm-cell.fn { background: var(--fn-bg); border: 2px solid var(--fn-color); color: #991b1b; }
+    .cm-cell.fp { background: var(--fp-bg); border: 2px solid var(--fp-color); color: #92400e; }
+    .cm-cell.tn { background: var(--tn-bg); border: 2px solid var(--tn-color); color: #115e59; }
+
+    .cm-cell-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .cm-cell-abbr {
+      font-size: 1rem;
+      font-weight: 800;
+    }
+
+    .cm-cell-val {
+      font-family: var(--font-mono);
+      font-size: 1.5rem;
+      font-weight: 800;
+    }
+
+    .cm-cell-desc {
+      font-size: 0.75rem;
+      margin-top: 2px;
+      opacity: 0.9;
+    }
+
+    /* Metrik Dashboard Card */
+    .metrics-summary-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 22px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .metrics-summary-card h3 {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 12px;
+    }
+
+    .metric-badges-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 500px) {
+      .metric-badges-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .metric-badge-box {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 10px 12px;
+      text-align: center;
+    }
+
+    .m-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .m-val {
+      font-family: var(--font-mono);
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--primary-dark);
+    }
+
+    .insight-callout {
+      background: #faf5ff;
+      border: 1.5px solid #d8b4fe;
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-size: 0.88rem;
+      color: #581c87;
+      line-height: 1.5;
+    }
+
+    /* Footer */
+    .app-footer {
+      margin-top: 48px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .app-footer a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .app-footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    
+    <header>
+      <div class="badge-course">Mata Kuliah Pembelajaran Mesin (Semester 7 &bull; Pertemuan 5)</div>
+      <h1>Visualisasi Kurva ROC-AUC &amp; PR-AUC</h1>
+      <p class="subtitle">
+        Pelajari cara kerja batas keputusan (threshold &tau;) pada model Regresi Logistik sesungguhnya. Amati bagaimana garis fungsi sigmoid memetakan fitur ke probabilitas serta dampaknya pada Kurva ROC dan Kurva PR secara langsung.
+      </p>
+    </header>
+
+    <!-- Kontrol Skenario & Threshold -->
+    <div class="top-controls">
+      <div class="controls-row">
+        <div class="preset-group">
+          <span class="preset-label">Pilih Karakteristik Dataset:</span>
+          <button class="btn-preset active" data-preset="balanced">1. Dataset Seimbang (50% : 50%)</button>
+          <button class="btn-preset" data-preset="imbalanced">2. Imbalance Ekstrem (10% Positif)</button>
+          <button class="btn-preset" data-preset="separated">3. Pemisahan Jelas (High Signal)</button>
+          <button class="btn-preset" data-preset="overlap">4. Tumpang Tindih (High Noise)</button>
+        </div>
+      </div>
+
+      <!-- Kotak Slider Garis Threshold -->
+      <div class="threshold-control-box">
+        <div class="threshold-header">
+          <div class="threshold-title">
+            <span>&#9878;</span>
+            <span>Garis Batas Probabilitas (Threshold &tau;) &amp; Batas Keputusan Fitur (x*)</span>
+          </div>
+          <div class="threshold-val-badge">
+            &tau; = <span id="lblThreshold">0,50</span> &bull; <small style="font-size:0.9rem; color:var(--text-muted);">x* = <span id="lblXStar">0,00</span></small>
+          </div>
+        </div>
+        
+        <div class="slider-container">
+          <span class="slider-endpoints">&tau; = 0,00</span>
+          <input type="range" id="sliderThreshold" class="range-threshold" min="0" max="100" value="50" step="1">
+          <span class="slider-endpoints">&tau; = 1,00</span>
+        </div>
+
+        <div style="font-size: 0.82rem; color: var(--text-muted); display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+          <span>&larr; Jika &tau; kecil: Batas x* bergeser ke kiri &rarr; Menjaring lebih banyak Positif (Mengejar <strong>Recall</strong>)</span>
+          <span>Jika &tau; besar: Batas x* bergeser ke kanan &rarr; Sangat selektif Positif (Mengejar <strong>Presisi</strong>) &rarr;</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Plot Model Regresi Logistik Sesungguhnya dengan Kurva Sigmoid -->
+    <div class="scatter-card">
+      <div class="scatter-card-header">
+        <div class="scatter-title">
+          <span>&#128300;</span>
+          <span>Sebaran Regresi Logistik Sejati: Titik Data Riil (y &isin; {0, 1}) &amp; Garis Sigmoid</span>
+        </div>
+        <div class="legend-group">
+          <div class="legend-item">
+            <span class="dot-neg"></span>
+            <span>Kelas 0 (Negatif Riil di y = 0): <strong id="cntNeg">50</strong> sampel</span>
+          </div>
+          <div class="legend-item">
+            <span class="dot-pos"></span>
+            <span>Kelas 1 (Positif Riil di y = 1): <strong id="cntPos">50</strong> sampel</span>
+          </div>
+          <div class="legend-item">
+            <span style="display:inline-block; width:20px; height:3.5px; background:#2563eb; border-radius:2px;"></span>
+            <span>Kurva Sigmoid p&#770;(x)</span>
+          </div>
+          <div class="legend-item">
+            <span style="display:inline-block; width:16px; height:2px; border-top:2px dashed #f59e0b;"></span>
+            <span>Batas Keputusan (&tau;, x*)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Area Gambar SVG Interaktif -->
+      <svg id="svgScatter" class="svg-scatter-container" viewBox="0 0 1000 310">
+        <!-- Dirender dinamis via JS -->
+      </svg>
+      <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:var(--text-muted); margin-top:8px;">
+        <span>Zona Prediksi Negatif (x &lt; x* &hArr; p&#770; &lt; &tau;) &rarr; Menghasilkan <strong>TN</strong> (biru) dan <strong>FN</strong> (merah)</span>
+        <span>Titik Perpotongan Sigmoid: (x*, &tau;) &bull; Klik pada grafik untuk memindahkan threshold</span>
+        <span>Zona Prediksi Positif (x &ge; x* &hArr; p&#770; &ge; &tau;) &rarr; Menghasilkan <strong>TP</strong> (merah) dan <strong>FP</strong> (biru)</span>
+      </div>
+    </div>
+
+    <!-- Grid 2 Kurva: ROC vs PR -->
+    <div class="curves-grid">
+      
+      <!-- Kurva 1: ROC-AUC -->
+      <div class="curve-card">
+        <div class="curve-header">
+          <div class="curve-title-box">
+            <h3>Kurva ROC (Receiver Operating Characteristic)</h3>
+            <span>Sumbu Y: Recall / TPR vs. Sumbu X: FPR</span>
+          </div>
+          <div class="auc-score-box">
+            <span class="auc-label">Skor ROC-AUC</span>
+            <span class="auc-val" id="valRocAuc">0,912</span>
+          </div>
+        </div>
+
+        <div class="svg-curve-wrapper">
+          <svg id="svgRoc" viewBox="0 0 400 400" style="width:100%; height:100%;">
+            <!-- Render Kurva ROC -->
+          </svg>
+        </div>
+        <div style="font-size:0.78rem; color:var(--text-muted); margin-top:8px; line-height:1.4;">
+          Titik oranye menunjukkan posisi operasional pada &tau; saat ini: 
+          <strong>FPR = <span id="curFpr">0,08</span></strong>, <strong>TPR = <span id="curTpr">0,82</span></strong>. 
+          Garis putus-putus abu-abu adalah tebakan acak (AUC = 0,50).
+        </div>
+      </div>
+
+      <!-- Kurva 2: PR-AUC -->
+      <div class="curve-card">
+        <div class="curve-header">
+          <div class="curve-title-box">
+            <h3>Kurva PR (Precision-Recall)</h3>
+            <span>Sumbu Y: Presisi vs. Sumbu X: Recall</span>
+          </div>
+          <div class="auc-score-box">
+            <span class="auc-label">Skor PR-AUC</span>
+            <span class="auc-val" id="valPrAuc" style="color:#7c3aed;">0,904</span>
+          </div>
+        </div>
+
+        <div class="svg-curve-wrapper">
+          <svg id="svgPr" viewBox="0 0 400 400" style="width:100%; height:100%;">
+            <!-- Render Kurva PR -->
+          </svg>
+        </div>
+        <div style="font-size:0.78rem; color:var(--text-muted); margin-top:8px; line-height:1.4;">
+          Titik oranye menunjukkan posisi operasional pada &tau; saat ini: 
+          <strong>Recall = <span id="curRecall">0,82</span></strong>, <strong>Presisi = <span id="curPrec">0,91</span></strong>. 
+          Garis putus-putus adalah rasio prevalensi dasar positif.
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Panel Bawah: Matriks Konfusi & Metrik Evaluasi -->
+    <div class="bottom-grid">
+      
+      <!-- Matriks Konfusi -->
+      <div class="cm-card">
+        <h3><span>&#9638;</span> Matriks Konfusi (Pada &tau; = <span id="cmThVal">0,50</span>)</h3>
+        
+        <table class="cm-table">
+          <thead>
+            <tr>
+              <th class="cm-corner"></th>
+              <th class="cm-th-col">Prediksi Positif (p&#770; &ge; &tau;)</th>
+              <th class="cm-th-col">Prediksi Negatif (p&#770; &lt; &tau;)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th class="cm-th-row">Positif Riil (Kelas 1)</th>
+              <td>
+                <div class="cm-cell tp">
+                  <div class="cm-cell-top">
+                    <span class="cm-cell-abbr">TP (Positif Benar)</span>
+                    <span class="cm-cell-val" id="cmTP">41</span>
+                  </div>
+                  <div class="cm-cell-desc">Pasien sakit dideteksi tepat</div>
+                </div>
+              </td>
+              <td>
+                <div class="cm-cell fn">
+                  <div class="cm-cell-top">
+                    <span class="cm-cell-abbr">FN (Negatif Palsu)</span>
+                    <span class="cm-cell-val" id="cmFN">9</span>
+                  </div>
+                  <div class="cm-cell-desc">Pasien sakit terlewat (Tipe II)</div>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th class="cm-th-row">Negatif Riil (Kelas 0)</th>
+              <td>
+                <div class="cm-cell fp">
+                  <div class="cm-cell-top">
+                    <span class="cm-cell-abbr">FP (Positif Palsu)</span>
+                    <span class="cm-cell-val" id="cmFP">4</span>
+                  </div>
+                  <div class="cm-cell-desc">Orang sehat kena vonis (Tipe I)</div>
+                </div>
+              </td>
+              <td>
+                <div class="cm-cell tn">
+                  <div class="cm-cell-top">
+                    <span class="cm-cell-abbr">TN (Negatif Benar)</span>
+                    <span class="cm-cell-val" id="cmTN">46</span>
+                  </div>
+                  <div class="cm-cell-desc">Orang sehat dipastikan bebas</div>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Ringkasan Metrik Terhitung -->
+      <div class="metrics-summary-card">
+        <h3>Ringkasan Metrik Evaluasi Saat Ini</h3>
+        
+        <div class="metric-badges-grid">
+          <div class="metric-badge-box">
+            <span class="m-label">Akurasi</span>
+            <span class="m-val" id="mAcc">87,0%</span>
+          </div>
+          <div class="metric-badge-box">
+            <span class="m-label">Recall / TPR</span>
+            <span class="m-val" id="mRec" style="color:#059669;">82,0%</span>
+          </div>
+          <div class="metric-badge-box">
+            <span class="m-label">Presisi (PPV)</span>
+            <span class="m-val" id="mPrec" style="color:#2563eb;">91,1%</span>
+          </div>
+          <div class="metric-badge-box">
+            <span class="m-label">Spesifisitas</span>
+            <span class="m-val" id="mSpec">92,0%</span>
+          </div>
+          <div class="metric-badge-box">
+            <span class="m-label">Laju FPR</span>
+            <span class="m-val" id="mFpr">8,0%</span>
+          </div>
+          <div class="metric-badge-box">
+            <span class="m-label">Skor F1</span>
+            <span class="m-val" id="mF1" style="color:#7c3aed;">0,863</span>
+          </div>
+        </div>
+
+        <div class="insight-callout" id="insightDynamic">
+          Pindahkan slider threshold &tau; untuk mengamati pergeseran titik kuning pada kedua kurva sekaligus melihat dampaknya pada Matriks Konfusi.
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div>
+        Materi Visualisasi <strong>Pembelajaran Mesin &bull; Pertemuan 5 (Supervised Learning)</strong>
+      </div>
+      <div style="font-size:0.85rem; color:var(--text-muted);">
+        ROC-AUC &amp; PR-AUC Curve Studio
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Script Logika Grafik Interaktif (Regresi Logistik & Sigmoid Murni) -->
+  <script>
+    // State Aplikasi
+    let currentPreset = 'balanced';
+    let currentThreshold = 0.50;
+    let dataset = []; // Berisi objek: { id, label: 0|1, x: float, prob: 0..1, yJitter: float }
+    
+    // Model Parameter Regresi Logistik
+    let modelParams = {
+      w: 1.3,
+      b: 0.0,
+      xMin: -4.5,
+      xMax: 4.5
+    };
+
+    // Fungsi Sigmoid Logistic Regression: p = 1 / (1 + exp(-(w*x + b)))
+    function sigmoid(z) {
+      return 1.0 / (1.0 + Math.exp(-z));
+    }
+
+    // Fungsi Logit: invers dari sigmoid
+    function logit(p) {
+      p = Math.max(0.0001, Math.min(0.9999, p));
+      return Math.log(p / (1.0 - p));
+    }
+
+    // Hitung Fitur Threshold x* pada Sigmoid saat probabilitas = tau
+    function getXStar(tau, w, b) {
+      if (tau <= 0.001) return modelParams.xMin;
+      if (tau >= 0.999) return modelParams.xMax;
+      let xStar = (logit(tau) - b) / w;
+      return Math.max(modelParams.xMin, Math.min(modelParams.xMax, xStar));
+    }
+
+    // Generator Data Sintetis Regresi Logistik Sesungguhnya
+    function generateDataset(type) {
+      const data = [];
+      let nPos = 50;
+      let nNeg = 50;
+      let meanNeg = -1.2;
+      let meanPos = 1.2;
+      let stdNeg = 0.95;
+      let stdPos = 0.95;
+
+      if (type === 'balanced') {
+        nPos = 50;
+        nNeg = 50;
+        meanNeg = -1.3;
+        meanPos = 1.3;
+        stdNeg = 0.95;
+        stdPos = 0.95;
+        modelParams.w = 1.35;
+        modelParams.b = 0.0;
+      } else if (type === 'imbalanced') {
+        nPos = 15;   // 10%
+        nNeg = 135;  // 90%
+        meanNeg = -1.1;
+        meanPos = 1.3;
+        stdNeg = 1.05;
+        stdPos = 0.95;
+        modelParams.w = 1.35;
+        modelParams.b = 0.0;
+      } else if (type === 'separated') {
+        nPos = 50;
+        nNeg = 50;
+        meanNeg = -2.3;
+        meanPos = 2.3;
+        stdNeg = 0.75;
+        stdPos = 0.75;
+        modelParams.w = 2.1;
+        modelParams.b = 0.0;
+      } else if (type === 'overlap') {
+        nPos = 50;
+        nNeg = 50;
+        meanNeg = -0.55;
+        meanPos = 0.55;
+        stdNeg = 1.25;
+        stdPos = 1.25;
+        modelParams.w = 0.75;
+        modelParams.b = 0.0;
+      }
+
+      // Pseudo-random Gaussian Box-Muller
+      function randG(mean, sigma) {
+        let u = 0, v = 0;
+        while(u === 0) u = Math.random();
+        while(v === 0) v = Math.random();
+        let num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+        return num * sigma + mean;
+      }
+
+      // Sampel Negatif (Kelas 0 di baris bawah y = 0)
+      for (let i = 0; i < nNeg; i++) {
+        let xVal = randG(meanNeg, stdNeg);
+        xVal = Math.max(modelParams.xMin, Math.min(modelParams.xMax, xVal));
+        let prob = sigmoid(modelParams.w * xVal + modelParams.b);
+        data.push({
+          id: `neg_${i}`,
+          label: 0,
+          x: xVal,
+          prob: prob,
+          yJitter: (Math.random() - 0.5) * 0.06 // Vertical jitter di sekitar y = 0
+        });
+      }
+
+      // Sampel Positif (Kelas 1 di baris atas y = 1)
+      for (let i = 0; i < nPos; i++) {
+        let xVal = randG(meanPos, stdPos);
+        xVal = Math.max(modelParams.xMin, Math.min(modelParams.xMax, xVal));
+        let prob = sigmoid(modelParams.w * xVal + modelParams.b);
+        data.push({
+          id: `pos_${i}`,
+          label: 1,
+          x: xVal,
+          prob: prob,
+          yJitter: (Math.random() - 0.5) * 0.06 // Vertical jitter di sekitar y = 1
+        });
+      }
+
+      // Urutkan data berdasarkan probabilitas menurun untuk perhitungan kurva ROC & PR
+      data.sort((a, b) => b.prob - a.prob);
+      return data;
+    }
+
+    // Hitung Titik-Titik Kurva ROC dan Kurva PR
+    function computeCurves(data) {
+      const P = data.filter(d => d.label === 1).length;
+      const N = data.filter(d => d.label === 0).length;
+
+      const rocPoints = [{ fpr: 0, tpr: 0, th: 1.0 }];
+      const prPoints = [];
+
+      let tp = 0;
+      let fp = 0;
+
+      for (let i = 0; i < data.length; i++) {
+        if (data[i].label === 1) tp++;
+        else fp++;
+
+        const currentTh = data[i].prob;
+        const tpr = P > 0 ? tp / P : 0;
+        const fpr = N > 0 ? fp / N : 0;
+        const prec = (tp + fp) > 0 ? tp / (tp + fp) : 1;
+
+        rocPoints.push({ fpr, tpr, th: currentTh });
+        prPoints.push({ recall: tpr, prec: prec, th: currentTh });
+      }
+
+      rocPoints.push({ fpr: 1, tpr: 1, th: 0.0 });
+
+      // Hitung Luas Area ROC-AUC (Aturan Trapesium)
+      let rocAuc = 0;
+      for (let i = 1; i < rocPoints.length; i++) {
+        const dx = rocPoints[i].fpr - rocPoints[i - 1].fpr;
+        const avgY = (rocPoints[i].tpr + rocPoints[i - 1].tpr) / 2;
+        rocAuc += dx * avgY;
+      }
+
+      // Hitung Luas Area PR-AUC (Average Precision)
+      let prAuc = 0;
+      let prevRecall = 0;
+      for (let i = 0; i < prPoints.length; i++) {
+        const dRecall = prPoints[i].recall - prevRecall;
+        if (dRecall > 0) {
+          prAuc += dRecall * prPoints[i].prec;
+          prevRecall = prPoints[i].recall;
+        }
+      }
+
+      return {
+        P, N,
+        rocPoints,
+        prPoints,
+        rocAuc: Math.max(0.5, Math.min(1.0, rocAuc)),
+        prAuc: Math.max(0.01, Math.min(1.0, prAuc))
+      };
+    }
+
+    // Evaluasi Matriks Konfusi pada Threshold Tertentu (tau)
+    function evaluateAtThreshold(data, tau) {
+      let TP = 0, FP = 0, TN = 0, FN = 0;
+
+      data.forEach(d => {
+        const pred = (d.prob >= tau) ? 1 : 0;
+        if (d.label === 1 && pred === 1) TP++;
+        else if (d.label === 1 && pred === 0) FN++;
+        else if (d.label === 0 && pred === 1) FP++;
+        else if (d.label === 0 && pred === 0) TN++;
+      });
+
+      const P = TP + FN;
+      const N = TN + FP;
+      const total = P + N;
+
+      const acc = total > 0 ? (TP + TN) / total : 0;
+      const tpr = P > 0 ? TP / P : 0; // Recall
+      const fpr = N > 0 ? FP / N : 0;
+      const spec = N > 0 ? TN / N : 0;
+      const prec = (TP + FP) > 0 ? TP / (TP + FP) : 1;
+      const f1 = (prec + tpr) > 0 ? (2 * prec * tpr) / (prec + tpr) : 0;
+
+      return { TP, FP, TN, FN, P, N, acc, tpr, fpr, spec, prec, f1 };
+    }
+
+    // Elemen DOM
+    const sliderThreshold = document.getElementById('sliderThreshold');
+    const lblThreshold = document.getElementById('lblThreshold');
+    const lblXStar = document.getElementById('lblXStar');
+    const cmThVal = document.getElementById('cmThVal');
+    const cntNeg = document.getElementById('cntNeg');
+    const cntPos = document.getElementById('cntPos');
+    const valRocAuc = document.getElementById('valRocAuc');
+    const valPrAuc = document.getElementById('valPrAuc');
+
+    const svgScatter = document.getElementById('svgScatter');
+    const svgRoc = document.getElementById('svgRoc');
+    const svgPr = document.getElementById('svgPr');
+
+    const cmTP = document.getElementById('cmTP');
+    const cmFN = document.getElementById('cmFN');
+    const cmFP = document.getElementById('cmFP');
+    const cmTN = document.getElementById('cmTN');
+
+    const mAcc = document.getElementById('mAcc');
+    const mRec = document.getElementById('mRec');
+    const mPrec = document.getElementById('mPrec');
+    const mSpec = document.getElementById('mSpec');
+    const mFpr = document.getElementById('mFpr');
+    const mF1 = document.getElementById('mF1');
+
+    const curFpr = document.getElementById('curFpr');
+    const curTpr = document.getElementById('curTpr');
+    const curRecall = document.getElementById('curRecall');
+    const curPrec = document.getElementById('curPrec');
+    const insightDynamic = document.getElementById('insightDynamic');
+
+    // Format Desimal Indonesia
+    function fmtDec(val, d = 2) {
+      return val.toFixed(d).replace('.', ',');
+    }
+    function fmtPct(val) {
+      return (val * 100).toFixed(1).replace('.', ',') + "%";
+    }
+
+    // Gambar Grafik Regresi Logistik Sesungguhnya dengan Sigmoid & Titik Data
+    function renderScatter() {
+      const width = 1000;
+      const height = 310;
+      const padLeft = 65;
+      const padRight = 45;
+      const padTop = 25;
+      const padBottom = 45;
+
+      const plotW = width - padLeft - padRight;
+      const plotH = height - padTop - padBottom;
+
+      const xMin = modelParams.xMin;
+      const xMax = modelParams.xMax;
+
+      const toSvgX = (x) => padLeft + ((x - xMin) / (xMax - xMin)) * plotW;
+      const toSvgY = (y) => padTop + (1.0 - y) * plotH;
+
+      const xStar = getXStar(currentThreshold, modelParams.w, modelParams.b);
+      const thSvgX = toSvgX(xStar);
+      const thSvgY = toSvgY(currentThreshold);
+
+      let html = '';
+
+      // 1. Shading Wilayah Keputusan
+      html += `<rect x="${padLeft}" y="${padTop}" width="${Math.max(0, thSvgX - padLeft)}" height="${plotH}" fill="#f0f9ff" opacity="0.6"/>`;
+      html += `<rect x="${thSvgX}" y="${padTop}" width="${Math.max(0, width - padRight - thSvgX)}" height="${plotH}" fill="#fef2f2" opacity="0.6"/>`;
+
+      // Label Wilayah Prediksi
+      html += `<text x="${padLeft + 12}" y="${padTop + 20}" font-family="var(--font-sans)" font-size="11" font-weight="700" fill="#0369a1">Zona Prediksi Negatif (y&#770; = 0)</text>`;
+      html += `<text x="${width - padRight - 12}" y="${padTop + 20}" font-family="var(--font-sans)" font-size="11" font-weight="700" text-anchor="end" fill="#b91c1c">Zona Prediksi Positif (y&#770; = 1)</text>`;
+
+      // 2. Garis Horizontal Grid Sumbu Y (y = 0, y = 0.5, y = 1.0)
+      const yTicks = [
+        { val: 1.0, label: "1 (Positif Riil)" },
+        { val: 0.75, label: "0,75" },
+        { val: 0.50, label: "0,50" },
+        { val: 0.25, label: "0,25" },
+        { val: 0.0, label: "0 (Negatif Riil)" }
+      ];
+
+      yTicks.forEach(t => {
+        let yPos = toSvgY(t.val);
+        let isBoundary = (t.val === 0.0 || t.val === 1.0);
+        let strokeCol = isBoundary ? "#94a3b8" : "#e2e8f0";
+        let strokeDash = isBoundary ? "" : "stroke-dasharray='4,4'";
+        html += `<line x1="${padLeft}" y1="${yPos}" x2="${width - padRight}" y2="${yPos}" stroke="${strokeCol}" stroke-width="${isBoundary ? 1.8 : 1}" ${strokeDash}/>`;
+        html += `<text x="${padLeft - 10}" y="${yPos + 4}" font-family="var(--font-mono)" font-size="11" text-anchor="end" fill="#64748b" font-weight="${isBoundary ? 'bold' : 'normal'}">${t.label}</text>`;
+      });
+
+      // 3. Garis Vertikal Grid Sumbu X (Fitur x)
+      for (let x = Math.ceil(xMin); x <= Math.floor(xMax); x++) {
+        let xPos = toSvgX(x);
+        html += `<line x1="${xPos}" y1="${padTop}" x2="${xPos}" y2="${height - padBottom}" stroke="#f1f5f9" stroke-width="1"/>`;
+        html += `<line x1="${xPos}" y1="${height - padBottom}" x2="${xPos}" y2="${height - padBottom + 6}" stroke="#64748b" stroke-width="1.5"/>`;
+        html += `<text x="${xPos}" y="${height - padBottom + 20}" font-family="var(--font-mono)" font-size="11" text-anchor="middle" fill="#64748b">${x}</text>`;
+      }
+
+      // Label Nama Sumbu
+      html += `<text x="${padLeft + plotW / 2}" y="${height - 8}" font-family="var(--font-sans)" font-size="12" font-weight="bold" text-anchor="middle" fill="#334155">Nilai Fitur Input (x)</text>`;
+      html += `<text x="${-padTop - plotH / 2}" y="16" transform="rotate(-90)" font-family="var(--font-sans)" font-size="11" font-weight="bold" text-anchor="middle" fill="#334155">Nilai Target (y) &amp; Probabilitas p&#770;(x)</text>`;
+
+      // 4. Garis Kurva Sigmoid Regresi Logistik Sejati
+      const steps = 140;
+      let pathSigmoid = '';
+      for (let s = 0; s <= steps; s++) {
+        let xVal = xMin + (s / steps) * (xMax - xMin);
+        let prob = sigmoid(modelParams.w * xVal + modelParams.b);
+        let sx = toSvgX(xVal);
+        let sy = toSvgY(prob);
+        if (s === 0) pathSigmoid += `M ${sx} ${sy}`;
+        else pathSigmoid += ` L ${sx} ${sy}`;
+      }
+      // Bayangan halus di bawah garis sigmoid
+      html += `<path d="${pathSigmoid}" fill="none" stroke="#93c5fd" stroke-width="7" stroke-linecap="round" opacity="0.4"/>`;
+      // Garis kurva utama
+      html += `<path d="${pathSigmoid}" fill="none" stroke="#2563eb" stroke-width="3.5" stroke-linecap="round"/>`;
+
+      // 5. Garis Threshold Horizontal (y = tau) & Garis Batas Keputusan Vertikal (x = x*)
+      // Garis Horizontal tau
+      html += `<line x1="${padLeft}" y1="${thSvgY}" x2="${width - padRight}" y2="${thSvgY}" stroke="#f59e0b" stroke-width="2" stroke-dasharray="6,4"/>`;
+      // Garis Vertikal x*
+      html += `<line x1="${thSvgX}" y1="${padTop}" x2="${thSvgX}" y2="${height - padBottom}" stroke="#2563eb" stroke-width="2.5" stroke-dasharray="6,4"/>`;
+
+      // Titik Pertemuan Sigmoid (x*, tau)
+      html += `
+        <circle cx="${thSvgX}" cy="${thSvgY}" r="7" fill="#f59e0b" stroke="#ffffff" stroke-width="2.5" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.2))"/>
+        <rect x="${Math.max(padLeft + 5, Math.min(width - padRight - 150, thSvgX - 70))}" y="${Math.max(padTop + 26, thSvgY - 26)}" width="140" height="20" rx="4" fill="#ffffff" stroke="#f59e0b" stroke-width="1.5"/>
+        <text x="${Math.max(padLeft + 5, Math.min(width - padRight - 150, thSvgX - 70)) + 70}" y="${Math.max(padTop + 26, thSvgY - 26) + 14}" font-family="var(--font-mono)" font-size="10.5" font-weight="bold" text-anchor="middle" fill="#92400e">
+          x* = ${fmtDec(xStar, 2)} | &tau; = ${fmtDec(currentThreshold, 2)}
+        </text>
+      `;
+
+      // 6. Titik-Titik Data Riil (Kelas 0 di baris bawah y=0, Kelas 1 di baris atas y=1)
+      dataset.forEach(d => {
+        let cx = toSvgX(d.x);
+        let cy = toSvgY(d.label + d.yJitter);
+        let isPos = (d.label === 1);
+        let color = isPos ? 'var(--class-pos)' : 'var(--class-neg)';
+        
+        // Cek hasil klasifikasi saat ini untuk border titik
+        let pred = (d.prob >= currentThreshold) ? 1 : 0;
+        let strokeColor = '#ffffff';
+        if (isPos && pred === 1) strokeColor = '#059669';       // TP
+        else if (isPos && pred === 0) strokeColor = '#991b1b';  // FN
+        else if (!isPos && pred === 1) strokeColor = '#d97706'; // FP
+        else if (!isPos && pred === 0) strokeColor = '#0369a1'; // TN
+
+        html += `<circle cx="${cx}" cy="${cy}" r="5.8" fill="${color}" fill-opacity="0.85" stroke="${strokeColor}" stroke-width="2">
+          <title>Kelas Riil y: ${d.label} | Fitur x: ${fmtDec(d.x, 2)} | Probabilitas Sigmoid p̂: ${fmtDec(d.prob, 3)} | Prediksi: ${pred}</title>
+        </circle>`;
+      });
+
+      svgScatter.innerHTML = html;
+    }
+
+    // Gambar Kurva ROC
+    function renderRoc(curveData, metrics) {
+      const size = 400;
+      const pad = 50;
+      const plotSize = size - 2 * pad;
+
+      const toSvgX = (fpr) => pad + fpr * plotSize;
+      const toSvgY = (tpr) => pad + (1 - tpr) * plotSize;
+
+      let html = '';
+
+      // Latar dan Grid Sumbu
+      html += `<rect x="${pad}" y="${pad}" width="${plotSize}" height="${plotSize}" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>`;
+
+      for (let i = 0; i <= 5; i++) {
+        let frac = i / 5;
+        let x = toSvgX(frac);
+        let y = toSvgY(frac);
+        html += `<line x1="${x}" y1="${pad}" x2="${x}" y2="${size - pad}" stroke="#f1f5f9" stroke-width="1"/>`;
+        html += `<line x1="${pad}" y1="${y}" x2="${size - pad}" y2="${y}" stroke="#f1f5f9" stroke-width="1"/>`;
+        html += `<text x="${x}" y="${size - pad + 18}" font-family="var(--font-mono)" font-size="11" text-anchor="middle" fill="#64748b">${fmtDec(frac, 1)}</text>`;
+        html += `<text x="${pad - 10}" y="${y + 4}" font-family="var(--font-mono)" font-size="11" text-anchor="end" fill="#64748b">${fmtDec(frac, 1)}</text>`;
+      }
+
+      // Sumbu Labels
+      html += `<text x="${size / 2}" y="${size - 12}" font-family="var(--font-sans)" font-size="12" font-weight="bold" text-anchor="middle" fill="#334155">Laju Positif Palsu (FPR)</text>`;
+      html += `<text x="${-size / 2}" y="16" transform="rotate(-90)" font-family="var(--font-sans)" font-size="12" font-weight="bold" text-anchor="middle" fill="#334155">Recall / Sensitivitas (TPR)</text>`;
+
+      // Garis Tebakan Acak (Diagonal AUC = 0.50)
+      html += `<line x1="${toSvgX(0)}" y1="${toSvgY(0)}" x2="${toSvgX(1)}" y2="${toSvgY(1)}" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5,5"/>`;
+
+      // Path Area Shading AUC
+      let pathArea = `M ${toSvgX(0)} ${toSvgY(0)}`;
+      curveData.rocPoints.forEach(pt => {
+        pathArea += ` L ${toSvgX(pt.fpr)} ${toSvgY(pt.tpr)}`;
+      });
+      pathArea += ` L ${toSvgX(1)} ${toSvgY(0)} Z`;
+      html += `<path d="${pathArea}" fill="rgba(37, 99, 235, 0.12)"/>`;
+
+      // Path Garis Kurva ROC
+      let pathLine = `M ${toSvgX(curveData.rocPoints[0].fpr)} ${toSvgY(curveData.rocPoints[0].tpr)}`;
+      for (let i = 1; i < curveData.rocPoints.length; i++) {
+        pathLine += ` L ${toSvgX(curveData.rocPoints[i].fpr)} ${toSvgY(curveData.rocPoints[i].tpr)}`;
+      }
+      html += `<path d="${pathLine}" fill="none" stroke="#2563eb" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+
+      // Titik Posisi Threshold Saat Ini
+      let curX = toSvgX(metrics.fpr);
+      let curY = toSvgY(metrics.tpr);
+      html += `
+        <circle cx="${curX}" cy="${curY}" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="2.5" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.2))"/>
+        <circle cx="${curX}" cy="${curY}" r="15" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="3,3"/>
+      `;
+
+      svgRoc.innerHTML = html;
+    }
+
+    // Gambar Kurva PR
+    function renderPr(curveData, metrics) {
+      const size = 400;
+      const pad = 50;
+      const plotSize = size - 2 * pad;
+
+      const toSvgX = (recall) => pad + recall * plotSize;
+      const toSvgY = (prec) => pad + (1 - prec) * plotSize;
+
+      let html = '';
+
+      // Latar dan Grid Sumbu
+      html += `<rect x="${pad}" y="${pad}" width="${plotSize}" height="${plotSize}" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>`;
+
+      for (let i = 0; i <= 5; i++) {
+        let frac = i / 5;
+        let x = toSvgX(frac);
+        let y = toSvgY(frac);
+        html += `<line x1="${x}" y1="${pad}" x2="${x}" y2="${size - pad}" stroke="#f1f5f9" stroke-width="1"/>`;
+        html += `<line x1="${pad}" y1="${y}" x2="${size - pad}" y2="${y}" stroke="#f1f5f9" stroke-width="1"/>`;
+        html += `<text x="${x}" y="${size - pad + 18}" font-family="var(--font-mono)" font-size="11" text-anchor="middle" fill="#64748b">${fmtDec(frac, 1)}</text>`;
+        html += `<text x="${pad - 10}" y="${y + 4}" font-family="var(--font-mono)" font-size="11" text-anchor="end" fill="#64748b">${fmtDec(frac, 1)}</text>`;
+      }
+
+      // Sumbu Labels
+      html += `<text x="${size / 2}" y="${size - 12}" font-family="var(--font-sans)" font-size="12" font-weight="bold" text-anchor="middle" fill="#334155">Recall (Cakupan Kasus Positif)</text>`;
+      html += `<text x="${-size / 2}" y="16" transform="rotate(-90)" font-family="var(--font-sans)" font-size="12" font-weight="bold" text-anchor="middle" fill="#334155">Presisi (Ketepatan Alarm)</text>`;
+
+      // Garis Acuan Rasio Prevalensi Dasar: P / (P + N)
+      const baseRate = curveData.P / (curveData.P + curveData.N);
+      let baseRateY = toSvgY(baseRate);
+      html += `<line x1="${pad}" y1="${baseRateY}" x2="${size - pad}" y2="${baseRateY}" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,4"/>`;
+      html += `<text x="${size - pad - 6}" y="${baseRateY - 6}" font-family="var(--font-mono)" font-size="10" text-anchor="end" fill="#64748b">Prevalensi = ${fmtPct(baseRate)}</text>`;
+
+      // Area Shading PR-AUC
+      if (curveData.prPoints.length > 0) {
+        let pathArea = `M ${toSvgX(0)} ${toSvgY(0)} L ${toSvgX(0)} ${toSvgY(curveData.prPoints[0].prec)}`;
+        curveData.prPoints.forEach(pt => {
+          pathArea += ` L ${toSvgX(pt.recall)} ${toSvgY(pt.prec)}`;
+        });
+        pathArea += ` L ${toSvgX(1)} ${toSvgY(0)} Z`;
+        html += `<path d="${pathArea}" fill="rgba(124, 58, 237, 0.12)"/>`;
+
+        // Path Garis Kurva PR
+        let pathLine = `M ${toSvgX(0)} ${toSvgY(curveData.prPoints[0].prec)}`;
+        curveData.prPoints.forEach(pt => {
+          pathLine += ` L ${toSvgX(pt.recall)} ${toSvgY(pt.prec)}`;
+        });
+        html += `<path d="${pathLine}" fill="none" stroke="#7c3aed" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+      }
+
+      // Titik Posisi Threshold Saat Ini
+      let curX = toSvgX(metrics.tpr);
+      let curY = toSvgY(metrics.prec);
+      html += `
+        <circle cx="${curX}" cy="${curY}" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="2.5" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.2))"/>
+        <circle cx="${curX}" cy="${curY}" r="15" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="3,3"/>
+      `;
+
+      svgPr.innerHTML = html;
+    }
+
+    // Perbarui Tampilan Keseluruhan
+    function updateAll() {
+      const curveData = computeCurves(dataset);
+      const metrics = evaluateAtThreshold(dataset, currentThreshold);
+      const xStar = getXStar(currentThreshold, modelParams.w, modelParams.b);
+
+      // Label teks
+      lblThreshold.textContent = fmtDec(currentThreshold, 2);
+      lblXStar.textContent = fmtDec(xStar, 2);
+      cmThVal.textContent = fmtDec(currentThreshold, 2);
+      cntNeg.textContent = curveData.N;
+      cntPos.textContent = curveData.P;
+
+      valRocAuc.textContent = fmtDec(curveData.rocAuc, 3);
+      valPrAuc.textContent = fmtDec(curveData.prAuc, 3);
+
+      curFpr.textContent = fmtDec(metrics.fpr, 2);
+      curTpr.textContent = fmtDec(metrics.tpr, 2);
+      curRecall.textContent = fmtDec(metrics.tpr, 2);
+      curPrec.textContent = fmtDec(metrics.prec, 2);
+
+      // Matriks Konfusi
+      cmTP.textContent = metrics.TP;
+      cmFN.textContent = metrics.FN;
+      cmFP.textContent = metrics.FP;
+      cmTN.textContent = metrics.TN;
+
+      // Metrik Dashboard
+      mAcc.textContent = fmtPct(metrics.acc);
+      mRec.textContent = fmtPct(metrics.tpr);
+      mPrec.textContent = fmtPct(metrics.prec);
+      mSpec.textContent = fmtPct(metrics.spec);
+      mFpr.textContent = fmtPct(metrics.fpr);
+      mF1.textContent = fmtDec(metrics.f1, 3);
+
+      // Umpan Balik Wawasan Dinamis
+      let insightText = '';
+      if (currentPreset === 'imbalanced') {
+        insightText = `Pada <strong>Dataset Imbalance Ekstrem (10% Positif)</strong>, perhatikan bahwa <strong>ROC-AUC tetap tampak tinggi (${fmtDec(curveData.rocAuc, 3)})</strong> karena jumlah sampel negatif yang besar mengaburkan Laju FPR. Sebaliknya, <strong>Kurva PR langsung anjlok (${fmtDec(curveData.prAuc, 3)})</strong> karena presisi sangat tertekan oleh alarm palsu. Inilah alasan mengapa kurva PR jauh lebih jujur untuk mendeteksi penipuan atau penyakit langka!`;
+      } else if (currentThreshold < 0.25) {
+        insightText = `Threshold rendah (&tau; = ${fmtDec(currentThreshold, 2)}, x* = ${fmtDec(xStar, 2)}): Garis batas bergeser ke kiri, menjaring hampir semua titik merah di baris atas. <strong>Recall sangat tinggi (${fmtPct(metrics.tpr)})</strong>, meminimalkan pasien terlewat (FN = ${metrics.FN}), namun menghasilkan banyak alarm palsu (FP = ${metrics.FP}) sehingga <strong>Presisi turun ke ${fmtPct(metrics.prec)}</strong>.`;
+      } else if (currentThreshold > 0.75) {
+        insightText = `Threshold tinggi (&tau; = ${fmtDec(currentThreshold, 2)}, x* = ${fmtDec(xStar, 2)}): Garis batas bergeser ke kanan, sangat selektif. <strong>Presisi melonjak ke ${fmtPct(metrics.prec)}</strong> dengan hanya ${metrics.FP} alarm palsu, tetapi mengorbankan <strong>Recall (${fmtPct(metrics.tpr)})</strong> dengan ${metrics.FN} kasus positif terlewat.`;
+      } else {
+        insightText = `Threshold moderat (&tau; = ${fmtDec(currentThreshold, 2)}, x* = ${fmtDec(xStar, 2)}): Posisi seimbang standar. Model menghasilkan Skor F1 sebesar <strong>${fmtDec(metrics.f1, 3)}</strong> dengan kompromi imbang antara menangkap kasus positif dan menekan alarm palsu.`;
+      }
+      insightDynamic.innerHTML = insightText;
+
+      // Render Visual
+      renderScatter();
+      renderRoc(curveData, metrics);
+      renderPr(curveData, metrics);
+    }
+
+    // Event Listener Slider Threshold
+    sliderThreshold.addEventListener('input', (e) => {
+      currentThreshold = parseInt(e.target.value) / 100.0;
+      updateAll();
+    });
+
+    // Klik Langsung pada Scatter SVG untuk Memindahkan Batas Keputusan
+    svgScatter.addEventListener('click', (e) => {
+      const rect = svgScatter.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const width = rect.width;
+      const padLeft = (65 / 1000) * width;
+      const padRight = (45 / 1000) * width;
+      const plotW = width - padLeft - padRight;
+
+      let xFrac = (clickX - padLeft) / plotW;
+      xFrac = Math.max(0, Math.min(1, xFrac));
+      let targetX = modelParams.xMin + xFrac * (modelParams.xMax - modelParams.xMin);
+      
+      // Hitung tau dari x yang diklik melalui fungsi sigmoid
+      let newTau = sigmoid(modelParams.w * targetX + modelParams.b);
+      currentThreshold = Math.max(0.01, Math.min(0.99, Math.round(newTau * 100) / 100));
+      sliderThreshold.value = Math.round(currentThreshold * 100);
+      updateAll();
+    });
+
+    // Tombol Preset Dataset
+    const presetBtns = document.querySelectorAll('.btn-preset');
+    presetBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        presetBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentPreset = btn.dataset.preset;
+        dataset = generateDataset(currentPreset);
+        updateAll();
+      });
+    });
+
+    // Inisialisasi Pertama Kali
+    document.addEventListener('DOMContentLoaded', () => {
+      dataset = generateDataset(currentPreset);
+      updateAll();
+    });
+  </script>
+</body>
+</html>
